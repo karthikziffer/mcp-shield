@@ -22,8 +22,10 @@ Exposing a database directly to an MCP server bypasses the access controls and o
 
 ## Install
 
+Not yet on PyPI. Install directly from GitHub:
+
 ```bash
-pip install mcp-shield
+pip install git+https://github.com/karthikziffer/mcp-shield.git
 ```
 
 Only `pydantic`, `sqlglot`, and `pyyaml` are required. No web framework, no database client.

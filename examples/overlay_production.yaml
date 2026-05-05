@@ -1,0 +1,17 @@
+# Production overlay applied on top of policies.yaml.
+# Demonstrates: adding a role, extending deny_tables, redefining a glossary term.
+
+rbac:
+  - role: oncall
+    allow_tools: [read_query, lookup_business_term]
+    allow_tables: [orders]
+
+deny_tables:
+  - audit_log_internal
+  - secrets
+
+glossary:
+  - term: churn
+    sql: "status = 'cancelled' AND last_login_at < NOW() - INTERVAL '14 days'"
+  - term: mrr
+    sql: "SUM(amount) FILTER (WHERE billing_period = 'monthly')"

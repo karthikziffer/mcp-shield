@@ -1,0 +1,44 @@
+# Sample mcp-shield policy. Loaded into mcp_shield.policy.Policy.
+
+deny_tables:
+  - users_credentials
+  - audit_log_internal
+
+deny_columns:
+  - table: users
+    deny_columns:
+      - password_hash
+      - mfa_secret
+  - table: customers
+    deny_columns:
+      - ssn
+
+rbac:
+  - role: analyst
+    allow_tools: [read_query, list_tables, describe_table, lookup_business_term]
+    allow_tables: [orders, customers, products]
+  - role: support
+    allow_tools: [read_query, lookup_business_term]
+    allow_tables: [orders, customers]
+
+rls:
+  - role: support
+    table: orders
+    predicate: "region = '{identity.claims[region]}'"
+  - role: analyst
+    table: customers
+    predicate: "tenant_id = '{identity.claims[tenant_id]}'"
+
+redaction:
+  - table: customers
+    column: email
+    mask: email
+  - table: customers
+    column: full_name
+    mask: name
+
+glossary:
+  - term: churn
+    sql: "status = 'cancelled' AND last_login_at < NOW() - INTERVAL '30 days'"
+  - term: active_customer
+    sql: "status = 'active' AND last_login_at >= NOW() - INTERVAL '30 days'"

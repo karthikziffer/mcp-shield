@@ -17,9 +17,6 @@ Security primitives for MCP servers. **You write the MCP server; mcp-shield give
 
 Exposing a database directly to an MCP server bypasses the access controls and observability your application normally provides, creating both security and performance risk. mcp-shield sits between the MCP server and the database to enforce role-based access control, row-level filters, output redaction, and audit logging.
 
-
-> Status: **pre-alpha scaffold**. Public API and policy schema are in place; most enforcement bodies still raise `NotImplementedError`. The 83% coverage figure reflects implemented code (stubs excluded via `coverage.exclude_lines`); it will become a more meaningful number as primitives ship.
-
 ## Install
 
 Not yet on PyPI. Install directly from GitHub:

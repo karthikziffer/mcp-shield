@@ -168,6 +168,41 @@ rows:
 {'term': 'not_a_term', 'sql': None, 'known_terms': ['high_value', 'completed_orders']}
 ```
 
+## Try it with MCP Inspector
+
+For interactive exploration, run the demo server under [`@modelcontextprotocol/inspector`](https://github.com/modelcontextprotocol/inspector). Each tool accepts optional `role`, `tenant_id`, and `region` arguments so you can switch identity per call without restarting the server.
+
+```bash
+python examples/mcp_server/seed.py
+npx @modelcontextprotocol/inspector python examples/mcp_server/server.py
+```
+
+Or set defaults at launch with env vars (`DEMO_ROLE`, `DEMO_TENANT_ID`, `DEMO_REGION`) — per-call args still override them:
+
+```bash
+DEMO_ROLE=support DEMO_REGION=eu \
+  npx @modelcontextprotocol/inspector python examples/mcp_server/server.py
+```
+
+In the Inspector UI, call `read_query` with these argument combinations to exercise each primitive:
+
+| `sql` | `role` | `tenant_id` | `region` | What it shows |
+|---|---|---|---|---|
+| `SELECT id, full_name, email, tier FROM customers` | `analyst` | `acme` | — | RLS injects `WHERE tenant_id='acme'`; email + name redacted |
+| same | `analyst` | `globex` | — | Same query, different tenant slice |
+| `SELECT * FROM orders` | `support` | — | `us` | RLS injects `WHERE region='us'` |
+| `SELECT * FROM orders` | `support` | — | `eu` | Same, eu rows only |
+| `SELECT * FROM products` | `support` | — | `us` | `AccessDenied` — not in support's `allow_tables` |
+| `SELECT * FROM users_credentials` | `analyst` | `acme` | — | `AccessDenied` — globally denied |
+| `UPDATE customers SET email = NULL` | `analyst` | `acme` | — | `ValidationError` — writes blocked |
+| `SELECT * FROM orders LIMIT 1000` | `analyst` | `acme` | — | LIMIT capped to 50 |
+| `SELECT * FROM customers` | `analyst` | *(omit)* | — | `MissingClaim` — RLS placeholder unfilled |
+| `SELECT * FROM customers` | `admin` | `acme` | — | `AccessDenied` — unknown role |
+
+`list_tables` and `lookup_business_term` accept the same identity arguments. Try `lookup_business_term(term="high_value")` and `term="completed_orders"` to see glossary entries from `examples/mcp_server/policies.yaml`.
+
+> **Demo-only pattern.** Accepting identity from caller arguments is unsafe in production — a malicious client could claim any role. A real deployment derives `Identity` from authenticated request context (headers, session, JWT) via the FastMCP `Context` object.
+
 ## Develop
 
 ```bash

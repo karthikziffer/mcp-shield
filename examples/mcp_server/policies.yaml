@@ -1,0 +1,42 @@
+# mcp-shield demo policy. Loaded by examples/mcp_server/server.py.
+#
+# Two roles:
+#   analyst -> can read customers/orders/products, scoped to one tenant_id.
+#   support -> can read customers/orders, scoped to one region.
+
+deny_tables:
+  - users_credentials
+
+deny_columns:
+  - table: customers
+    deny_columns: [tenant_id]   # internal partitioning key, not user-facing
+
+rbac:
+  - role: analyst
+    allow_tools: [read_query, list_tables, lookup_business_term]
+    allow_tables: [customers, orders, products]
+  - role: support
+    allow_tools: [read_query, list_tables, lookup_business_term]
+    allow_tables: [customers, orders]
+
+rls:
+  - role: analyst
+    table: customers
+    predicate: "tenant_id = '{identity.claims[tenant_id]}'"
+  - role: support
+    table: orders
+    predicate: "region = '{identity.claims[region]}'"
+
+redaction:
+  - table: customers
+    column: email
+    mask: email
+  - table: customers
+    column: full_name
+    mask: name
+
+glossary:
+  - term: high_value
+    sql: "tier = 'gold'"
+  - term: completed_orders
+    sql: "status = 'completed'"

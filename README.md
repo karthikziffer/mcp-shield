@@ -5,9 +5,9 @@
 <p align="center">
   <a href="https://opensource.org/licenses/Apache-2.0"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License: Apache 2.0"/></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11%2B-blue.svg" alt="Python 3.11+"/></a>
-  <img src="https://img.shields.io/badge/coverage-83%25-yellowgreen.svg" alt="Coverage 83%"/>
-  <img src="https://img.shields.io/badge/tests-14%20passing-brightgreen.svg" alt="14 tests passing"/>
-  <img src="https://img.shields.io/badge/status-pre--alpha-orange.svg" alt="Status: pre-alpha"/>
+  <img src="https://img.shields.io/badge/coverage-88%25-yellowgreen.svg" alt="Coverage 88%"/>
+  <img src="https://img.shields.io/badge/tests-59%20passing-brightgreen.svg" alt="59 tests passing"/>
+  <img src="https://img.shields.io/badge/status-alpha-orange.svg" alt="Status: alpha"/>
   <a href="https://github.com/astral-sh/ruff"><img src="https://img.shields.io/badge/code%20style-ruff-261230.svg" alt="Code style: ruff"/></a>
 </p>
 

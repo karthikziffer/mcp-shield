@@ -5,8 +5,15 @@ Run from the project root after seeding:
     DEMO_ROLE=analyst DEMO_TENANT_ID=acme \\
         python examples/mcp_server/server.py
 
-Identity is read from environment variables for the demo. In a real deployment
-you'd derive it from the request's auth headers via the FastMCP Context.
+Identity for the demo can come from two places:
+  1. Tool arguments — each tool accepts ``role``, ``tenant_id``, ``region`` so
+     you can switch identity per call from mcp-inspector without restarting.
+  2. Environment variables — ``DEMO_ROLE`` / ``DEMO_TENANT_ID`` / ``DEMO_REGION``
+     act as defaults when the corresponding tool argument is omitted.
+
+DO NOT do either in production: a real deployment derives Identity from
+authenticated request context (headers, session, JWT), never from caller-
+supplied parameters.
 
 Try it via mcp-inspector:
     npx @modelcontextprotocol/inspector \\
@@ -34,14 +41,20 @@ shield = Shield.from_yaml(POLICY_PATH, dialect="sqlite", default_limit=50)
 mcp = FastMCP("mcp-shield-demo")
 
 
-def _identity() -> Identity:
-    role = os.environ.get("DEMO_ROLE", "analyst")
+def _identity(
+    role: str | None = None,
+    tenant_id: str | None = None,
+    region: str | None = None,
+) -> Identity:
+    role = role or os.environ.get("DEMO_ROLE", "analyst")
     user_id = os.environ.get("DEMO_USER_ID", f"demo-{role}")
+    tenant_id = tenant_id or os.environ.get("DEMO_TENANT_ID")
+    region = region or os.environ.get("DEMO_REGION")
     claims: dict[str, Any] = {}
-    if "DEMO_TENANT_ID" in os.environ:
-        claims["tenant_id"] = os.environ["DEMO_TENANT_ID"]
-    if "DEMO_REGION" in os.environ:
-        claims["region"] = os.environ["DEMO_REGION"]
+    if tenant_id:
+        claims["tenant_id"] = tenant_id
+    if region:
+        claims["region"] = region
     return Identity(user_id=user_id, roles=(role,), session_id="demo-session", claims=claims)
 
 
@@ -54,14 +67,23 @@ def _connect() -> sqlite3.Connection:
 
 
 @mcp.tool()
-def read_query(sql: str) -> dict[str, Any]:
+def read_query(
+    sql: str,
+    role: str | None = None,
+    tenant_id: str | None = None,
+    region: str | None = None,
+) -> dict[str, Any]:
     """Run a read-only SQL query through the shield.
 
     The shield (1) checks tool access, (2) rewrites the SQL to inject the
     caller's RLS predicate and cap LIMIT, (3) lets sqlite run it, and
     (4) redacts sensitive columns from the result.
+
+    ``role``, ``tenant_id``, ``region`` override the env-var defaults so you
+    can switch identity per call from mcp-inspector. Demo-only — see module
+    docstring.
     """
-    identity = _identity()
+    identity = _identity(role=role, tenant_id=tenant_id, region=region)
     try:
         shield.check_tool(identity, "read_query")
         safe_sql = shield.rewrite(sql, identity)
@@ -83,9 +105,13 @@ def read_query(sql: str) -> dict[str, Any]:
 
 
 @mcp.tool()
-def list_tables() -> dict[str, Any]:
+def list_tables(
+    role: str | None = None,
+    tenant_id: str | None = None,
+    region: str | None = None,
+) -> dict[str, Any]:
     """Return the tables this identity is allowed to read."""
-    identity = _identity()
+    identity = _identity(role=role, tenant_id=tenant_id, region=region)
     try:
         shield.check_tool(identity, "list_tables")
     except AccessDenied as e:
@@ -101,9 +127,14 @@ def list_tables() -> dict[str, Any]:
 
 
 @mcp.tool()
-def lookup_business_term(term: str) -> dict[str, Any]:
+def lookup_business_term(
+    term: str,
+    role: str | None = None,
+    tenant_id: str | None = None,
+    region: str | None = None,
+) -> dict[str, Any]:
     """Resolve a business term (e.g. 'high_value') to its SQL fragment."""
-    identity = _identity()
+    identity = _identity(role=role, tenant_id=tenant_id, region=region)
     try:
         shield.check_tool(identity, "lookup_business_term")
     except AccessDenied as e:

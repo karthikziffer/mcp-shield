@@ -104,6 +104,70 @@ glossary:
     sql: "status = 'cancelled' AND last_login_at < NOW() - INTERVAL '30 days'"
 ```
 
+## Try it end-to-end
+
+`examples/mcp_server/_smoke.py` runs the demo FastMCP server's tool functions in-process against a seeded SQLite DB across 7 scenarios — exercising RBAC, RLS, redaction, and the validator in one pass.
+
+| Scenario in `_smoke.py` | Primitive exercised |
+|---|---|
+| 1 — analyst@acme `SELECT customers` | RLS (`tenant_id=acme`) + redaction (email, name) |
+| 2 — analyst@globex same query | RLS with different claim |
+| 3 — support@us `SELECT orders` | RLS (`region=us`) |
+| 4 — support tries products | RBAC (table not in `allow_tables`) |
+| 5 — analyst tries users_credentials | RBAC (globally denied) |
+| 6 — `UPDATE customers` | Validator (write blocked) |
+| 7 — `list_tables` / glossary lookup | Tool RBAC + glossary |
+
+Run from the repo root:
+
+```bash
+pip install -e ".[dev]"
+pip install "mcp[cli]"          # FastMCP runtime — not in declared deps
+python examples/mcp_server/seed.py
+python examples/mcp_server/_smoke.py
+```
+
+Expected output (rewritten SQL shows RLS injection + LIMIT cap; rows show redaction):
+
+```
+--- analyst@acme: SELECT * FROM customers ---
+rewritten: SELECT id, full_name, email, tier FROM customers WHERE tenant_id = 'acme' LIMIT 50
+rows:
+  {'id': 1, 'full_name': 'A. C.', 'email': 'a***@acme.test', 'tier': 'gold'}
+  {'id': 2, 'full_name': 'B. M.', 'email': 'b***@acme.test', 'tier': 'silver'}
+
+--- analyst@globex: same query ---
+rewritten: SELECT id, full_name, email, tier FROM customers WHERE tenant_id = 'globex' LIMIT 50
+rows:
+  {'id': 3, 'full_name': 'C. D.', 'email': 'c***@globex.test', 'tier': 'gold'}
+  {'id': 4, 'full_name': 'D. B.', 'email': 'd***@globex.test', 'tier': 'silver'}
+
+--- support@us: SELECT * FROM orders ---
+rewritten: SELECT * FROM orders WHERE region = 'us' LIMIT 50
+rows:
+  {'id': 1, 'customer_id': 1, 'region': 'us', 'amount': 199.0, 'status': 'completed'}
+  {'id': 2, 'customer_id': 1, 'region': 'us', 'amount': 49.0, 'status': 'completed'}
+  {'id': 3, 'customer_id': 2, 'region': 'us', 'amount': 19.0, 'status': 'cancelled'}
+
+--- support@us: SELECT * FROM products (denied) ---
+{'error': 'AccessDenied', 'message': "table 'products' is not in allow_tables for roles ['support']"}
+
+--- analyst: SELECT * FROM users_credentials (denied) ---
+{'error': 'AccessDenied', 'message': "table 'users_credentials' is globally denied"}
+
+--- analyst: UPDATE customers (write blocked) ---
+{'error': 'ValidationError', 'message': 'write statements are not allowed'}
+
+--- list_tables (analyst) ---
+{'tables': ['customers', 'orders', 'products']}
+
+--- glossary lookup ---
+{'term': 'high_value', 'sql': "tier = 'gold'"}
+
+--- unknown glossary term ---
+{'term': 'not_a_term', 'sql': None, 'known_terms': ['high_value', 'completed_orders']}
+```
+
 ## Develop
 
 ```bash
